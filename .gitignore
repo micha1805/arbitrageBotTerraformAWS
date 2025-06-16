@@ -1,0 +1,30 @@
+.DS_Store
+
+# ===== TERRAFORM =====
+# State files 
+terraform.tfstate
+terraform.tfstate.backup
+.terraform.tfstate.lock.info
+
+# Dossier des providers téléchargés
+.terraform/
+
+# Plans d'exécution 
+*.tfplan
+
+# Fichiers de variables avec des valeurs sensibles
+terraform.tfvars
+*.auto.tfvars
+
+# Crash logs
+crash.log
+
+# Override files
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+
+# CLI configuration files
+.terraformrc
+terraform.rc
