@@ -70,7 +70,7 @@ resource "aws_route_table_association" "public_2" {
 # Security Groups
 resource "aws_security_group" "alb" {
   name        = "alb-sg"
-  description = "Allow HTTP"
+  description = "Security group for ALB"
   vpc_id      = aws_vpc.main.id
 
   ingress {
@@ -80,11 +80,22 @@ resource "aws_security_group" "alb" {
     cidr_blocks = ["0.0.0.0/0"]
   }
 
+  ingress {
+    from_port   = 443
+    to_port     = 443
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
   egress {
     from_port   = 0
     to_port     = 0
     protocol    = "-1"
     cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  tags = {
+    Name = "alb-sg"
   }
 }
 
@@ -119,8 +130,14 @@ resource "aws_lb" "main" {
   name               = "main-alb"
   internal           = false
   load_balancer_type = "application"
-  subnets            = [aws_subnet.public.id, aws_subnet.public_2.id]
   security_groups    = [aws_security_group.alb.id]
+  subnets            = [aws_subnet.public.id, aws_subnet.public_2.id]
+
+  enable_deletion_protection = false
+
+  tags = {
+    Name = "main-alb"
+  }
 }
 
 resource "aws_lb_target_group" "jenkins" {
@@ -159,10 +176,30 @@ resource "aws_lb_target_group" "prod" {
   target_type = "ip"
 }
 
+# HTTP Listener (redirect to HTTPS)
 resource "aws_lb_listener" "http" {
   load_balancer_arn = aws_lb.main.arn
-  port              = 80
+  port              = "80"
   protocol          = "HTTP"
+
+  default_action {
+    type = "redirect"
+
+    redirect {
+      port        = "443"
+      protocol    = "HTTPS"
+      status_code = "HTTP_301"
+    }
+  }
+}
+
+# HTTPS Listener
+resource "aws_lb_listener" "https" {
+  load_balancer_arn = aws_lb.main.arn
+  port              = "443"
+  protocol          = "HTTPS"
+  ssl_policy        = "ELBSecurityPolicy-TLS-1-2-2017-01"
+  certificate_arn   = aws_acm_certificate_validation.main.certificate_arn
 
   default_action {
     type             = "forward"
@@ -170,8 +207,9 @@ resource "aws_lb_listener" "http" {
   }
 }
 
-resource "aws_lb_listener_rule" "jenkins" {
-  listener_arn = aws_lb_listener.http.arn
+# HTTPS Listener Rules
+resource "aws_lb_listener_rule" "jenkins_https" {
+  listener_arn = aws_lb_listener.https.arn
   priority     = 100
 
   action {
@@ -186,8 +224,8 @@ resource "aws_lb_listener_rule" "jenkins" {
   }
 }
 
-resource "aws_lb_listener_rule" "staging" {
-  listener_arn = aws_lb_listener.http.arn
+resource "aws_lb_listener_rule" "staging_https" {
+  listener_arn = aws_lb_listener.https.arn
   priority     = 200
 
   action {
@@ -202,8 +240,8 @@ resource "aws_lb_listener_rule" "staging" {
   }
 }
 
-resource "aws_lb_listener_rule" "prod" {
-  listener_arn = aws_lb_listener.http.arn
+resource "aws_lb_listener_rule" "prod_https" {
+  listener_arn = aws_lb_listener.https.arn
   priority     = 300
 
   action {
@@ -213,7 +251,7 @@ resource "aws_lb_listener_rule" "prod" {
 
   condition {
     host_header {
-      values = ["www.${var.domain_name}", var.domain_name]
+      values = [var.domain_name, "www.${var.domain_name}"]
     }
   }
 }
@@ -400,4 +438,43 @@ resource "aws_route53_record" "root" {
     zone_id               = aws_lb.main.zone_id
     evaluate_target_health = true
   }
+}
+
+# ACM Certificate
+resource "aws_acm_certificate" "main" {
+  domain_name               = var.domain_name
+  subject_alternative_names = ["*.${var.domain_name}"]
+  validation_method         = "DNS"
+
+  lifecycle {
+    create_before_destroy = true
+  }
+
+  tags = {
+    Name = "main-certificate"
+  }
+}
+
+# Certificate validation
+resource "aws_acm_certificate_validation" "main" {
+  certificate_arn         = aws_acm_certificate.main.arn
+  validation_record_fqdns = [for record in aws_route53_record.cert_validation : record.fqdn]
+}
+
+# Route53 records for certificate validation
+resource "aws_route53_record" "cert_validation" {
+  for_each = {
+    for dvo in aws_acm_certificate.main.domain_validation_options : dvo.domain_name => {
+      name   = dvo.resource_record_name
+      record = dvo.resource_record_value
+      type   = dvo.resource_record_type
+    }
+  }
+
+  allow_overwrite = true
+  name            = each.value.name
+  records         = [each.value.record]
+  ttl             = 60
+  type            = each.value.type
+  zone_id         = data.aws_route53_zone.main.zone_id
 }

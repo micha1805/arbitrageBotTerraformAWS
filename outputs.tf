@@ -5,7 +5,7 @@ output "alb_dns_name" {
 
 output "jenkins_url" {
   description = "URL for Jenkins"
-  value       = "http://jenkins.${var.domain_name}"
+  value       = "https://jenkins.${var.domain_name}"
 }
 
 output "jenkins_ip" {
@@ -15,12 +15,12 @@ output "jenkins_ip" {
 
 output "staging_url" {
   description = "URL for staging environment"
-  value       = "http://staging.${var.domain_name}"
+  value       = "https://staging.${var.domain_name}"
 }
 
 output "prod_url" {
   description = "URL for production environment"
-  value       = "http://${var.domain_name}"
+  value       = "https://${var.domain_name}"
 }
 
 output "ecr_repo_url" {
