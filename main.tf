@@ -125,6 +125,32 @@ resource "aws_security_group" "jenkins" {
   }
 }
 
+resource "aws_security_group" "ecs" {
+  name        = "ecs-sg"
+  description = "Security group for ECS services"
+  vpc_id      = aws_vpc.main.id
+
+  # Ingress uniquement depuis ALB
+  ingress {
+    from_port       = 8080
+    to_port         = 8080
+    protocol        = "tcp"
+    security_groups = [aws_security_group.alb.id]
+  }
+
+  # Egress vers 0.0.0.0/0 pour ECR, Docker Hub, etc.
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  tags = {
+    Name = "ecs-sg"
+  }
+}
+
 # Application Load Balancer
 resource "aws_lb" "main" {
   name               = "main-alb"
@@ -162,18 +188,42 @@ resource "aws_lb_target_group" "jenkins" {
 
 resource "aws_lb_target_group" "staging" {
   name        = "staging-tg"
-  port        = 80
+  port        = 8080
   protocol    = "HTTP"
   vpc_id      = aws_vpc.main.id
   target_type = "ip"
+
+  health_check {
+    enabled             = true
+    healthy_threshold   = 2
+    interval            = 30
+    matcher             = "200"
+    path                = "/actuator/health"
+    port                = "traffic-port"
+    protocol            = "HTTP"
+    timeout             = 5
+    unhealthy_threshold = 2
+  }
 }
 
 resource "aws_lb_target_group" "prod" {
   name        = "prod-tg"
-  port        = 80
+  port        = 8080
   protocol    = "HTTP"
   vpc_id      = aws_vpc.main.id
   target_type = "ip"
+
+  health_check {
+    enabled             = true
+    healthy_threshold   = 2
+    interval            = 30
+    matcher             = "200"
+    path                = "/actuator/health"
+    port                = "traffic-port"
+    protocol            = "HTTP"
+    timeout             = 5
+    unhealthy_threshold = 2
+  }
 }
 
 # HTTP Listener (redirect to HTTPS)
@@ -322,8 +372,8 @@ resource "aws_ecs_task_definition" "staging" {
       name  = "staging"
       image = "${aws_ecr_repository.trading_bot.repository_url}:staging"
       portMappings = [{
-        containerPort = 80
-        hostPort      = 80
+        containerPort = 8080
+        hostPort      = 8080
         protocol      = "tcp"
       }]
     }
@@ -342,8 +392,8 @@ resource "aws_ecs_task_definition" "prod" {
       name  = "prod"
       image = "${aws_ecr_repository.trading_bot.repository_url}:prod"
       portMappings = [{
-        containerPort = 80
-        hostPort      = 80
+        containerPort = 8080
+        hostPort      = 8080
         protocol      = "tcp"
       }]
     }
@@ -358,15 +408,15 @@ resource "aws_ecs_service" "staging" {
   launch_type     = "FARGATE"
 
   network_configuration {
-    subnets          = [aws_subnet.private_staging.id]
-    security_groups  = [aws_security_group.alb.id]
-    assign_public_ip = false
+    subnets          = [aws_subnet.public.id]
+    security_groups  = [aws_security_group.ecs.id]
+    assign_public_ip = true
   }
 
   load_balancer {
     target_group_arn = aws_lb_target_group.staging.arn
     container_name   = "staging"
-    container_port   = 80
+    container_port   = 8080
   }
 }
 
@@ -378,15 +428,15 @@ resource "aws_ecs_service" "prod" {
   launch_type     = "FARGATE"
 
   network_configuration {
-    subnets          = [aws_subnet.private_prod.id]
-    security_groups  = [aws_security_group.alb.id]
-    assign_public_ip = false
+    subnets          = [aws_subnet.public_2.id]
+    security_groups  = [aws_security_group.ecs.id]
+    assign_public_ip = true
   }
 
   load_balancer {
     target_group_arn = aws_lb_target_group.prod.arn
     container_name   = "prod"
-    container_port   = 80
+    container_port   = 8080
   }
 }
 
