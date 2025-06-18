@@ -364,8 +364,8 @@ resource "aws_ecs_task_definition" "staging" {
   family                   = "staging-task"
   network_mode             = "awsvpc"
   requires_compatibilities = ["FARGATE"]
-  cpu                      = "256"
-  memory                   = "512"
+  cpu                      = "1024"
+  memory                   = "2048"
   execution_role_arn       = aws_iam_role.ecs_execution.arn
   container_definitions = jsonencode([
     {
@@ -384,8 +384,8 @@ resource "aws_ecs_task_definition" "prod" {
   family                   = "prod-task"
   network_mode             = "awsvpc"
   requires_compatibilities = ["FARGATE"]
-  cpu                      = "256"
-  memory                   = "512"
+  cpu                      = "1024"
+  memory                   = "2048"
   execution_role_arn       = aws_iam_role.ecs_execution.arn
   container_definitions = jsonencode([
     {
