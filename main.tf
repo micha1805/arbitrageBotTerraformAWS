@@ -44,7 +44,7 @@ resource "aws_subnet" "private_prod" {
 # Internet Gateway
 resource "aws_internet_gateway" "igw" {
   vpc_id = aws_vpc.main.id
-  tags = { Name = "main-igw" }
+  tags = { Name = "arbitrage-bot-igw" }
 }
 
 # Route table
@@ -54,7 +54,7 @@ resource "aws_route_table" "public" {
     cidr_block = "0.0.0.0/0"
     gateway_id = aws_internet_gateway.igw.id
   }
-  tags = { Name = "public-route-table" }
+  tags = { Name = "arbitrage-bot-public-route-table" }
 }
 
 resource "aws_route_table_association" "public" {
@@ -69,7 +69,7 @@ resource "aws_route_table_association" "public_2" {
 
 # Security Groups
 resource "aws_security_group" "alb" {
-  name        = "alb-sg"
+  name        = "arbitrage-bot-alb-sg"
   description = "Security group for ALB"
   vpc_id      = aws_vpc.main.id
 
@@ -95,12 +95,12 @@ resource "aws_security_group" "alb" {
   }
 
   tags = {
-    Name = "alb-sg"
+    Name = "arbitrage-bot-alb-sg"
   }
 }
 
 resource "aws_security_group" "jenkins" {
-  name   = "jenkins-sg"
+  name   = "arbitrage-bot-jenkins-sg"
   vpc_id = aws_vpc.main.id
 
   ingress {
@@ -126,7 +126,7 @@ resource "aws_security_group" "jenkins" {
 }
 
 resource "aws_security_group" "ecs" {
-  name        = "ecs-sg"
+  name        = "arbitrage-bot-ecs-sg"
   description = "Security group for ECS services"
   vpc_id      = aws_vpc.main.id
 
@@ -147,13 +147,13 @@ resource "aws_security_group" "ecs" {
   }
 
   tags = {
-    Name = "ecs-sg"
+    Name = "arbitrage-bot-ecs-sg"
   }
 }
 
 # Application Load Balancer
 resource "aws_lb" "main" {
-  name               = "main-alb"
+  name               = "arbitrage-bot-alb"
   internal           = false
   load_balancer_type = "application"
   security_groups    = [aws_security_group.alb.id]
@@ -162,12 +162,12 @@ resource "aws_lb" "main" {
   enable_deletion_protection = false
 
   tags = {
-    Name = "main-alb"
+    Name = "arbitrage-bot-alb"
   }
 }
 
 resource "aws_lb_target_group" "jenkins" {
-  name        = "jenkins-tg"
+  name        = "arbitrage-bot-jenkins-tg"
   port        = 8080
   protocol    = "HTTP"
   vpc_id      = aws_vpc.main.id
@@ -187,7 +187,7 @@ resource "aws_lb_target_group" "jenkins" {
 }
 
 resource "aws_lb_target_group" "staging" {
-  name        = "staging-tg"
+  name        = "arbitrage-bot-staging-tg"
   port        = 8080
   protocol    = "HTTP"
   vpc_id      = aws_vpc.main.id
@@ -207,7 +207,7 @@ resource "aws_lb_target_group" "staging" {
 }
 
 resource "aws_lb_target_group" "prod" {
-  name        = "prod-tg"
+  name        = "arbitrage-bot-prod-tg"
   port        = 8080
   protocol    = "HTTP"
   vpc_id      = aws_vpc.main.id
