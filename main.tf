@@ -360,6 +360,37 @@ resource "aws_iam_role_policy_attachment" "ecs_execution_policy" {
   policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
 }
 
+# Data sources for secrets
+data "aws_secretsmanager_secret" "staging_env" {
+  name = "staging-env-var"
+}
+
+data "aws_secretsmanager_secret" "prod_env" {
+  name = "prod-env-var"
+}
+
+# Policy for accessing Secrets Manager
+resource "aws_iam_role_policy" "secrets_manager_policy" {
+  name = "SecretsManagerPolicy"
+  role = aws_iam_role.ecs_execution.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "secretsmanager:GetSecretValue"
+        ]
+        Resource = [
+          data.aws_secretsmanager_secret.staging_env.arn,
+          data.aws_secretsmanager_secret.prod_env.arn
+        ]
+      }
+    ]
+  })
+}
+
 resource "aws_ecs_task_definition" "staging" {
   family                   = "staging-task"
   network_mode             = "awsvpc"
@@ -371,6 +402,12 @@ resource "aws_ecs_task_definition" "staging" {
     {
       name  = "staging"
       image = "${aws_ecr_repository.trading_bot.repository_url}:staging"
+      secrets = [
+        {
+          name      = "ADMIN_HASH"
+          valueFrom = "${data.aws_secretsmanager_secret.staging_env.arn}:ADMIN_HASH::"
+        }
+      ]
       portMappings = [{
         containerPort = 8080
         hostPort      = 8080
@@ -391,6 +428,12 @@ resource "aws_ecs_task_definition" "prod" {
     {
       name  = "prod"
       image = "${aws_ecr_repository.trading_bot.repository_url}:prod"
+      secrets = [
+        {
+          name      = "ADMIN_HASH"
+          valueFrom = "${data.aws_secretsmanager_secret.prod_env.arn}:ADMIN_HASH::"
+        }
+      ]
       portMappings = [{
         containerPort = 8080
         hostPort      = 8080
