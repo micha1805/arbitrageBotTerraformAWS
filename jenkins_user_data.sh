@@ -2,20 +2,6 @@
 
 set -e
 
-# Désactiver tmpfs sur /tmp si monté
-if mount | grep -q "on /tmp type tmpfs"; then
-  umount /tmp
-  rm -rf /tmp
-  mkdir /tmp
-  chmod 1777 /tmp
-fi
-
-# Empêcher le remontage tmpfs au reboot
-echo "tmpfs /tmp tmpfs defaults,noatime,nosuid,nodev,mode=1777,size=0" >> /etc/fstab
-
-# Désactiver le service systemd-tmpfiles
-systemctl mask tmp.mount
-
 # Update system
 yum update -y
 
