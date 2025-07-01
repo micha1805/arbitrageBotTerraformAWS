@@ -54,7 +54,7 @@ variable "jenkins_ami" {
 variable "instance_type" {
   description = "Type d'instance EC2"
   type        = string
-  default     = "t3.small"
+  default     = "t3.medium"
 }
 
 variable "key_name" {
