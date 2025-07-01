@@ -402,6 +402,12 @@ resource "aws_ecs_task_definition" "staging" {
     {
       name  = "staging"
       image = "${aws_ecr_repository.trading_bot.repository_url}:staging"
+      environment = [
+        {
+          name  = "SPRING_PROFILES_ACTIVE"
+          value = "staging"
+        }
+      ]
       secrets = [
         {
           name      = "ADMIN_HASH"
@@ -428,6 +434,12 @@ resource "aws_ecs_task_definition" "prod" {
     {
       name  = "prod"
       image = "${aws_ecr_repository.trading_bot.repository_url}:prod"
+      environment = [
+        {
+          name  = "SPRING_PROFILES_ACTIVE"
+          value = "production"
+        }
+      ]
       secrets = [
         {
           name      = "ADMIN_HASH"
