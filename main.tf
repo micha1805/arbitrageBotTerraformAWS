@@ -337,6 +337,23 @@ resource "aws_ecr_repository" "trading_bot" {
   name = "trading-bot"
 }
 
+# CloudWatch Log Groups
+resource "aws_cloudwatch_log_group" "staging" {
+  name              = "/ecs/staging-app"
+  retention_in_days = 7
+  tags = {
+    Environment = "staging"
+  }
+}
+
+resource "aws_cloudwatch_log_group" "prod" {
+  name              = "/ecs/prod-app"
+  retention_in_days = 30
+  tags = {
+    Environment = "production"
+  }
+}
+
 resource "aws_ecs_cluster" "main" {
   name = "trading-bot-cluster"
 }
@@ -369,7 +386,7 @@ data "aws_secretsmanager_secret" "prod_env" {
   name = "prod-env-var"
 }
 
-# Policy for accessing Secrets Manager
+# Policy for accessing Secrets Manager and CloudWatch Logs
 resource "aws_iam_role_policy" "secrets_manager_policy" {
   name = "SecretsManagerPolicy"
   role = aws_iam_role.ecs_execution.id
@@ -385,6 +402,17 @@ resource "aws_iam_role_policy" "secrets_manager_policy" {
         Resource = [
           data.aws_secretsmanager_secret.staging_env.arn,
           data.aws_secretsmanager_secret.prod_env.arn
+        ]
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "logs:CreateLogStream",
+          "logs:PutLogEvents"
+        ]
+        Resource = [
+          "${aws_cloudwatch_log_group.staging.arn}:*",
+          "${aws_cloudwatch_log_group.prod.arn}:*"
         ]
       }
     ]
@@ -419,6 +447,14 @@ resource "aws_ecs_task_definition" "staging" {
         hostPort      = 8080
         protocol      = "tcp"
       }]
+      logConfiguration = {
+        logDriver = "awslogs"
+        options = {
+          "awslogs-group"         = aws_cloudwatch_log_group.staging.name
+          "awslogs-region"        = var.aws_region
+          "awslogs-stream-prefix" = "ecs"
+        }
+      }
     }
   ])
 }
@@ -451,6 +487,14 @@ resource "aws_ecs_task_definition" "prod" {
         hostPort      = 8080
         protocol      = "tcp"
       }]
+      logConfiguration = {
+        logDriver = "awslogs"
+        options = {
+          "awslogs-group"         = aws_cloudwatch_log_group.prod.name
+          "awslogs-region"        = var.aws_region
+          "awslogs-stream-prefix" = "ecs"
+        }
+      }
     }
   ])
 }
